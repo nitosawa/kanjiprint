@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>漢字プリントメーカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-jp: 'Klee One', 'BIZ UDPGothic', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: var(--font-jp);
+  margin: 0; padding: 0;
+  background: #eef0f3; color: #222;
+}
+
+
+.controls {
+  background: #fff;
+  max-width: 920px;
+  margin: 20px auto;
+  padding: 22px 28px;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+}
+.controls h1 { margin: 0 0 6px; font-size: 22px; }
+.controls .sub { color: #777; font-size: 13px; margin-bottom: 18px; }
+
+.row { display: flex; align-items: center; gap: 12px; margin: 12px 0; flex-wrap: wrap; }
+.row > label.lbl { min-width: 110px; font-weight: 700; color: #444; font-size: 14px; }
+
+.radio { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.radio input { cursor: pointer; }
+
+select, input[type="text"] {
+  padding: 8px 10px; font-size: 14px;
+  border: 1px solid #ccc; border-radius: 6px;
+  font-family: inherit; background: #fff;
+  min-width: 220px;
+}
+select:disabled { background: #f3f3f3; color: #aaa; }
+
+.btn {
+  padding: 10px 22px; font-size: 14px; font-weight: 700;
+  border: none; border-radius: 6px; cursor: pointer;
+  font-family: inherit; background: #3b7ad9; color: #fff;
+  transition: background 0.15s;
+}
+.btn:hover { background: #2a66c2; }
+.btn.secondary { background: #6b7785; }
+.btn.secondary:hover { background: #525b66; }
+.btn.ghost { background: #eef2f7; color: #3b7ad9; }
+.btn.ghost:hover { background: #dde6f3; }
+
+.note { color: #888; font-size: 12px; margin-top: 8px; }
+
+input[type="file"] { font-family: inherit; font-size: 13px; }
+
+.csv-help { margin: 6px 0 0; font-size: 13px; color: #555; }
+.csv-help summary { cursor: pointer; color: #3b7ad9; user-select: none; }
+.csv-help .help-body { padding: 8px 12px; background: #f7f9fc; border-radius: 6px; margin-top: 6px; }
+.csv-help pre { background: #fff; border: 1px solid #ddd; padding: 8px; font-size: 12px; overflow-x: auto; border-radius: 4px; }
+.csv-help code { background: #fff; padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+.csv-help p { margin: 6px 0; }
+
+.preview-wrap { display: flex; justify-content: center; padding: 0 0 40px; }
+.sheet {
+  background: #fff;
+  width: 210mm; height: 297mm;
+  padding: 10mm 9mm 8mm;
+  box-shadow: 0 0 18px rgba(0,0,0,0.18);
+  position: relative;
+  font-family: var(--font-jp);
+}
+
+.header-bar {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  border-bottom: 0.4mm solid #333;
+  padding-bottom: 1.5mm; margin-bottom: 4mm;
+  font-size: 3.6mm;
+}
+.header-bar .title { font-weight: 700; font-size: 4.4mm; }
+.header-bar .field { font-size: 3.4mm; color: #333; }
+.header-bar .field .line { display: inline-block; width: 26mm; border-bottom: 0.3mm solid #888; margin-left: 1mm; height: 4mm; vertical-align: middle; }
+
+.problem { margin-bottom: 2mm; }
+.problem-title {
+  font-size: 4.2mm; font-weight: 700;
+  margin: 0 0 2mm 1mm; line-height: 1;
+}
+.problem-title ruby rt { font-size: 1.8mm; font-weight: 400; }
+.problem-title .num {
+  display: inline-block; background: #333; color: #fff; border-radius: 50%;
+  width: 5.5mm; height: 5.5mm; text-align: center; line-height: 5.5mm;
+  font-size: 3.4mm; margin-right: 2mm; vertical-align: middle;
+}
+
+.grid-row { display: flex; align-items: stretch; margin-bottom: 1.2mm; }
+.cell-unit { display: flex; align-items: stretch; margin-right: 1.2mm; }
+.cell-unit:last-child { margin-right: 0; }
+
+.cell {
+  width: 26mm; height: 26mm;
+  border: 0.6mm solid #111;
+  position: relative; background: #fff;
+}
+.cell::before, .cell::after {
+  content: ''; position: absolute;
+  background-image: linear-gradient(to right, #bbb 50%, transparent 50%);
+  background-size: 1.4mm 0.18mm; background-repeat: repeat-x;
+}
+.cell::before { left: 0; right: 0; top: 50%; height: 0.18mm; transform: translateY(-50%); }
+.cell::after {
+  top: 0; bottom: 0; left: 50%; width: 0.18mm;
+  background-image: linear-gradient(to bottom, #bbb 50%, transparent 50%);
+  background-size: 0.18mm 1.4mm; background-repeat: repeat-y;
+  transform: translateX(-50%);
+}
+
+.cell .char {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24mm; 
+  color: #e0e0e0; /* 透明度(opacity)ではなく、薄いグレーを直接指定 */
+  line-height: 1;
+  font-weight: 400 !important; /* 強制的にNormalウェイトにする */
+  font-family: 'Klee One', var(--font-jp); /* 優先順位を上げる */
+  user-select: none;
+}
+
+.furi {
+  width: 4.5mm;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
+  padding-top: 1mm;
+  font-size: 3.0mm; line-height: 1.05; color: #222;
+}
+.furi span { display: block; text-align: center; }
+
+.divider { border: 0; border-top: 0.5mm solid #111; margin: 4mm 0 4mm; }
+
+@media print {
+  body { background: #fff; }
+  .controls { display: none; }
+  .preview-wrap { padding: 0; }
+  .sheet {
+    box-shadow: none; margin: 0;
+    width: 210mm; height: 297mm;
+    page-break-after: always;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  @page { size: A4 portrait; margin: 0; }
+}
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <h1>漢字プリントメーカー</h1>
+  <div class="sub">A4・PDF出力対応 /  Klee One（Webフォント） / 熟語データはCSVで差し替え可能</div>
+
+  <div class="row">
+    <label class="lbl">熟語データ</label>
+    <input type="file" id="csvFile" accept=".csv,.txt">
+    <button class="btn ghost" onclick="resetVocab()">標準データに戻す</button>
+    <span class="note" id="csvStatus"></span>
+  </div>
+  <details class="csv-help">
+    <summary>CSVフォーマットについて</summary>
+    <div class="help-body">
+<p>1行に1熟語。区切り文字はカンマ。以下のいずれの形式でも読み込めます：</p>
+<pre>森林,しんりん
+森の中,もりのなか
+弟の家,おとうとのいえ</pre>
+<p>※先頭に行番号があってもOK：<code>1,森林,しんりん</code></p>
+<p>※読みが分割できない熟語は、<b>第3列に「字:読み」を「|」で区切って</b>指定できます（推奨）：</p>
+<pre>弟と妹,おとうとといもうと,弟:おとうと|と:と|妹:いもうと</pre>
+<p>※読みはひらがな・カタカナのみ。読みが漢字を含む行は除外されます。</p>
+    </div>
+  </details>
+
+  <div class="row">
+    <label class="lbl">出題方式</label>
+    <label class="radio"><input type="radio" name="mode" value="random" checked> ランダム</label>
+    <label class="radio"><input type="radio" name="mode" value="manual"> 手動選択</label>
+  </div>
+
+  <div class="row" id="filterRow">
+    <label class="lbl">漢字でしぼり込み</label>
+    <select id="filterKanji">
+      <option value="">（しぼり込みなし）</option>
+    </select>
+    <span class="note">特定の漢字を含む熟語からランダム抽出</span>
+  </div>
+
+  <div class="row manual-only" style="display:none;">
+    <label class="lbl">問題１</label>
+    <select id="problem1"></select>
+  </div>
+  <div class="row manual-only" style="display:none;">
+    <label class="lbl">問題２</label>
+    <select id="problem2"></select>
+  </div>
+
+  <div class="row">
+    <button class="btn" onclick="generate()">プリントをつくる</button>
+    <button class="btn secondary" onclick="window.print()">印刷 / PDFほぞん</button>
+    <button class="btn ghost" onclick="generate()">べつのもんだいに</button>
+  </div>
+  <div class="note">※印刷ダイアログで「PDFとして保存」を選択／用紙はA4・余白「なし」推奨</div>
+</div>
+
+<div class="preview-wrap">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<script>
+/* 標準熟語データ（CSV、置き換え可能） */
+const rawCSV = `1,一月,いちがつ
+2,一年生,いちねんせい
+3,一つの石,ひとつのいし
+4,一日中,いちにちじゅう
+5,右手,みぎて
+6,右と左,みぎとひだり
+7,右に出る,みぎにでる
+8,雨水,あまみず
+9,大雨,おおあめ
+10,雨天,うてん
+11,雨がふる,あめがふる
+12,百円,ひゃくえん
+13,千円,せんえん
+14,一円玉,いちえんだま
+15,王子,おうじ
+16,王女,おうじょ
+17,大王,だいおう
+18,足音,あしおと
+19,大きな音,おおきなおと
+20,音が出る,おとがでる
+21,下山,げざん
+22,下校,げこう
+23,木の下,きのした
+24,下に出る,したにでる
+25,花火,はなび
+26,火山,かざん
+27,火が出る,ひがでる
+28,草花,くさばな
+29,花見,はなみ
+30,青い花,あおいはな
+31,白い花,しろいはな
+32,貝がら,かいがら
+33,貝を見る,かいをみる
+34,川の貝,かわのかい
+35,入学,にゅうがく
+36,中学生,ちゅうがくせい
+37,天気,てんき
+38,空気,くうき
+39,気がつく,きがつく
+40,九月,くがつ
+41,九つの玉,ここのつのたま
+42,九つの石,ここのつのいし
+43,休日,きゅうじつ
+44,目玉,めだま
+45,月よう日,げつようび
+46,火よう日,かようび
+47,水よう日,すいようび
+48,木よう日,もくようび
+49,土よう日,どようび
+50,金よう日,きんようび
+51,日よう日,にちようび
+52,大金,たいきん
+53,金山,きんざん
+54,青空,あおぞら
+55,大空,おおぞら
+56,天空,てんくう
+57,空が青い,そらがあおい
+58,月見,つきみ
+59,正月,しょうがつ
+60,月が出る,つきがでる
+61,子犬,こいぬ
+62,白い犬,しろいいぬ
+63,大きな犬,おおきないぬ
+64,見えない,みえない
+65,目で見る,めでみる
+66,五月,ごがつ
+67,五人,ごにん
+68,五つの山,いつつのやま
+69,入口,いりぐち
+70,出口,でぐち
+71,早口,はやくち
+72,校門,こうもん
+73,左手,ひだりて
+74,左に出る,ひだりにでる
+75,三月,さんがつ
+76,三人,さんにん
+77,三つの山,みっつのやま
+78,小山,こやま
+79,山川,やまかわ
+80,男子,だんし
+81,女子,じょし
+82,四月,しがつ
+83,四人,よにん
+84,四つの玉,よっつのたま
+85,糸まき,いとまき
+86,赤い糸,あかいいと
+87,白い糸,しろいいと
+88,文字,もじ
+89,大きな字,おおきなじ
+90,字を見る,じをみる
+91,耳もと,みみもと
+92,耳で聞く,みみできく
+93,七月,しちがつ
+94,七つの石,ななつのいし
+95,七つの花,ななつのはな
+96,車が出る,くるまがでる
+97,大きな車,おおきなくるま
+98,水車,すいしゃ
+99,上手,じょうず
+100,手足,てあし
+101,十月,じゅうがつ
+102,十人,じゅうにん
+103,十の力,じゅうのちから
+104,出入,でいり
+105,出て見る,でてみる
+106,男女,だんじょ
+107,小川,おがわ
+108,小石,こいし
+109,小さな虫,ちいさなむし
+110,山の上,やまのうえ
+111,上に立つ,うえにたつ
+112,森林,しんりん
+113,森の中,もりのなか
+114,大きな森,おおきなもり
+115,名人,めいじん
+116,村人,むらびと
+117,水田,すいでん
+118,生水,なまみず
+119,水が出る,みずがでる
+120,正しい字,ただしいじ
+121,先生,せんせい
+122,青虫,あおむし
+123,青い山,あおいやま
+124,青い空,あおいそら
+125,夕日,ゆうひ
+126,夕ぐれ,ゆうぐれ
+127,石の山,いしのやま
+128,赤土,あかつち
+129,赤い花,あかいはな
+130,千年,せんねん
+131,大川,おおかわ
+132,先に出る,さきにでる
+133,早足,はやあし
+134,早く立つ,はやくたつ
+135,草木,くさき
+136,青い草,あおいくさ
+137,田んぼ,たんぼ
+138,大人,おとな
+139,大木,たいぼく
+140,大きな川,おおきなかわ
+141,大きな男,おおきなおとこ
+142,竹林,ちくりん
+143,竹の子,たけのこ
+144,山の中,やまのなか
+145,虫かご,むしかご
+146,町を出る,まちをでる
+147,大きな町,おおきなまち
+148,二月,にがつ
+149,二人,ふたり
+150,二つの山,ふたつのやま
+151,日本,にほん
+152,日が出る,ひがでる
+153,百年,ひゃくねん
+154,本文,ほんぶん
+155,本を見る,ほんをみる
+156,名を正す,なをただす
+157,大きな名,おおきなな
+158,立てる,たてる
+159,大きな力,おおきなちから
+160,林の中,はやしのなか
+161,六月,ろくがつ
+162,六つの山,むっつのやま
+163,六人,ろくにん
+164,八月,はちがつ
+165,八つの玉,やっつのたま
+166,雨の音,あめのおと
+167,本を書く,ほんをかく
+168,年こし,としこし
+169,生きる力,いきるちから
+170,左右,さゆう
+171,王のくに,おうのくに
+172,円い玉,まるいたま
+173,八つの花,やっつのはな
+174,年上,としうえ
+175,年下,としした
+176,生える,はえる
+177,小学生,しょうがくせい`;
+
+/* 組み込み読み辞書（CSV読み込み後は自動学習で拡張） */
+const KANJI_READINGS = {
+  '一': ['いち','ひと','いっ','いつ'],
+  '右': ['みぎ','ゆう','う'],
+  '雨': ['あめ','あま','う'],
+  '円': ['えん','まる','まるい'],
+  '王': ['おう'],
+  '音': ['おん','おと','ね'],
+  '下': ['した','げ','か','さ','お','くだ','もと'],
+  '火': ['ひ','か','ほ'],
+  '花': ['はな','ばな','か'],
+  '貝': ['かい'],
+  '学': ['がく','まな'],
+  '気': ['き','け'],
+  '九': ['きゅう','く','ここの'],
+  '休': ['きゅう','やす'],
+  '玉': ['たま','ぎょく','だま'],
+  '金': ['きん','かね','がね'],
+  '空': ['そら','くう','から','あ','ぞら'],
+  '月': ['つき','がつ','げつ','つ'],
+  '犬': ['いぬ'],
+  '見': ['み','けん'],
+  '五': ['ご','いつ','いつつ'],
+  '口': ['くち','ぐち','こう'],
+  '校': ['こう'],
+  '左': ['ひだり','さ'],
+  '三': ['さん','み','みっ'],
+  '山': ['やま','さん','ざん'],
+  '子': ['こ','し','す'],
+  '四': ['よ','よん','し','よっ'],
+  '糸': ['いと'],
+  '字': ['じ'],
+  '耳': ['みみ','じ'],
+  '七': ['しち','なな','なの'],
+  '車': ['くるま','しゃ'],
+  '手': ['て','しゅ','ず'],
+  '十': ['じゅう','とお','じっ','と'],
+  '出': ['で','しゅつ','だ','い'],
+  '女': ['おんな','じょ','め'],
+  '小': ['ちい','こ','しょう','お','ちいさ'],
+  '上': ['うえ','じょう','あ','のぼ'],
+  '森': ['もり','しん'],
+  '人': ['ひと','じん','にん','びと','り','な'],
+  '水': ['みず','すい'],
+  '正': ['ただ','しょう','せい','まさ'],
+  '生': ['い','う','は','き','なま','せい','しょう','え'],
+  '青': ['あお','せい'],
+  '夕': ['ゆう'],
+  '石': ['いし','せき','こく','しゃく'],
+  '赤': ['あか','せき'],
+  '千': ['せん','ち'],
+  '川': ['かわ','がわ','せん'],
+  '先': ['さき','せん'],
+  '早': ['はや','さっ','そう'],
+  '草': ['くさ','そう'],
+  '足': ['あし','あ','た','そく'],
+  '村': ['むら','そん'],
+  '大': ['おお','だい','たい','おと'],
+  '男': ['おとこ','だん','なん'],
+  '竹': ['たけ','ちく'],
+  '中': ['なか','ちゅう','じゅう'],
+  '虫': ['むし','ちゅう'],
+  '町': ['まち','ちょう'],
+  '天': ['てん','あま','あめ'],
+  '田': ['た','だ','でん'],
+  '土': ['つち','ど','と'],
+  '二': ['に','ふた','ふたつ'],
+  '日': ['ひ','び','にち','じつ','か','に'],
+  '入': ['いり','にゅう','はい','じゅ','い'],
+  '年': ['とし','ねん'],
+  '白': ['しろ','しら','はく','びゃく'],
+  '八': ['はち','や','よう','やっ','よ'],
+  '百': ['ひゃく','びゃく','もも'],
+  '文': ['ぶん','もん','ふみ','も'],
+  '本': ['もと','ほん','ぼん'],
+  '名': ['な','めい','みょう'],
+  '木': ['き','ぼく','もく','こ'],
+  '目': ['め','もく','ま'],
+  '立': ['た','りつ'],
+  '力': ['ちから','りょく','りき'],
+  '林': ['はやし','りん','ばやし'],
+  '六': ['ろく','む','むっ','むい'],
+};
+
+/* 例外（じゅくじくん等）の手動分割表 */
+const MANUAL_SPLITS = {
+  '大人': [['大','おと'],['人','な']],
+  '上手': [['上','じょう'],['手','ず']],
+  '今日': [['今','きょ'],['日','う']],
+};
+
+/* ユーティリティ */
+const isHiragana = c => /[ぁ-んー]/.test(c);
+const isKatakana = c => /[ァ-ヶー]/.test(c);
+const isKana = c => isHiragana(c) || isKatakana(c);
+const isKanji = c => /[一-鿿]/.test(c);
+
+function parseCSV(s) {
+  return s.trim().split(/\r?\n/).map(line => {
+    if (!line.trim()) return null;
+    const parts = line.split(',').map(p => p.trim());
+    let word, reading, splitStr;
+    if (/^\d+$/.test(parts[0])) {
+      word = parts[1]; reading = parts[2]; splitStr = parts[3];
+    } else {
+      word = parts[0]; reading = parts[1]; splitStr = parts[2];
+    }
+    if (!word || !reading) return null;
+    return { word, reading, splitStr };
+  }).filter(Boolean);
+}
+
+function isCleanReading(r) { return /^[ぁ-んァ-ヶー]+$/.test(r); }
+
+function parseSplitStr(s) {
+  if (!s) return null;
+  const pairs = s.split('|').map(p => {
+    const [c, r] = p.split(':');
+    if (!c || !r) return null;
+    return { char: c.trim(), reading: r.trim() };
+  });
+  return pairs.every(Boolean) ? pairs : null;
+}
+
+function splitWordBasic(word, reading) {
+  if (MANUAL_SPLITS[word]) {
+    return MANUAL_SPLITS[word].map(([c, r]) => ({ char: c, reading: r }));
+  }
+  const chars = Array.from(word);
+  const result = [];
+  let rest = reading;
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    const isLast = (i === chars.length - 1);
+    if (isKana(ch)) {
+      if (rest.startsWith(ch)) { result.push({ char: ch, reading: ch }); rest = rest.slice(1); }
+      else { result.push({ char: ch, reading: ch }); }
+    } else if (isKanji(ch)) {
+      const candidates = (KANJI_READINGS[ch] || []).slice().sort((a, b) => b.length - a.length);
+      let matched = null;
+      if (isLast) { result.push({ char: ch, reading: rest }); rest = ''; continue; }
+      for (const cand of candidates) {
+        if (rest.startsWith(cand)) {
+          const remaining = rest.slice(cand.length);
+          const remainingChars = chars.slice(i + 1);
+          const nextKana = remainingChars.find(c => isKana(c));
+          if (nextKana) {
+            if (remaining.includes(nextKana)) { matched = cand; break; }
+          } else { matched = cand; break; }
+        }
+      }
+      if (!matched) {
+        for (const cand of candidates) {
+          if (rest.startsWith(cand)) { matched = cand; break; }
+        }
+      }
+      if (matched) { result.push({ char: ch, reading: matched }); rest = rest.slice(matched.length); }
+      else { result.push({ char: ch, reading: rest.slice(0, 2) }); rest = rest.slice(2); }
+    } else {
+      result.push({ char: ch, reading: ch });
+    }
+  }
+  return result;
+}
+
+function splitWordAnchor(word, reading) {
+  const chars = Array.from(word);
+  const segments = [];
+  let i = 0;
+  while (i < chars.length) {
+    if (isKana(chars[i])) { segments.push({ type: 'kana', chars: [chars[i]] }); i++; }
+    else if (isKanji(chars[i])) {
+      const start = i;
+      while (i < chars.length && isKanji(chars[i])) i++;
+      segments.push({ type: 'kanji', chars: chars.slice(start, i) });
+    } else { segments.push({ type: 'other', chars: [chars[i]] }); i++; }
+  }
+  let rest = reading;
+  const allocated = [];
+  for (let s = 0; s < segments.length; s++) {
+    const seg = segments[s];
+    if (seg.type !== 'kanji') {
+      const ch = seg.chars[0];
+      if (rest.startsWith(ch)) { allocated.push({ seg, portion: ch }); rest = rest.slice(1); }
+      else { allocated.push({ seg, portion: ch }); }
+      continue;
+    }
+    let nextAnchorIdx = -1;
+    for (let t = s + 1; t < segments.length; t++) {
+      if (segments[t].type !== 'kanji') { nextAnchorIdx = t; break; }
+    }
+    if (nextAnchorIdx === -1) { allocated.push({ seg, portion: rest }); rest = ''; }
+    else {
+      const anchorChar = segments[nextAnchorIdx].chars[0];
+      const kanjiCount = seg.chars.length;
+      const remainingSegsAfterAnchor = segments.length - nextAnchorIdx - 1;
+      const minTailReading = remainingSegsAfterAnchor;
+      const occ = [];
+      for (let p = kanjiCount; p <= rest.length - 1 - minTailReading; p++) {
+        if (rest[p] === anchorChar) occ.push(p);
+      }
+      let pickPos;
+      if (occ.length === 0) {
+        const firstOcc = rest.indexOf(anchorChar);
+        pickPos = firstOcc >= 0 ? firstOcc : kanjiCount;
+      } else {
+        let best = null;
+        const firstCh = seg.chars[0];
+        const cands = KANJI_READINGS[firstCh] || [];
+        for (const cand of cands) {
+          if (rest.startsWith(cand)) {
+            const candAnchor = rest.indexOf(anchorChar, cand.length);
+            if (candAnchor !== -1 && occ.includes(candAnchor)) { best = candAnchor; break; }
+          }
+        }
+        if (best !== null) pickPos = best;
+        else {
+          const target = kanjiCount * 2;
+          pickPos = occ.reduce((b, p) => Math.abs(p - target) < Math.abs(b - target) ? p : b, occ[0]);
+        }
+      }
+      allocated.push({ seg, portion: rest.slice(0, pickPos) });
+      rest = rest.slice(pickPos);
+    }
+  }
+  const result = [];
+  for (const a of allocated) {
+    if (a.seg.type !== 'kanji') { result.push({ char: a.seg.chars[0], reading: a.portion }); continue; }
+    if (a.seg.chars.length === 1) { result.push({ char: a.seg.chars[0], reading: a.portion }); continue; }
+    let r = a.portion;
+    for (let k = 0; k < a.seg.chars.length; k++) {
+      const ch = a.seg.chars[k];
+      const isLast = (k === a.seg.chars.length - 1);
+      if (isLast) { result.push({ char: ch, reading: r }); r = ''; continue; }
+      const cands = (KANJI_READINGS[ch] || []).slice().sort((x, y) => y.length - x.length);
+      let matched = null;
+      for (const c of cands) {
+        if (r.startsWith(c) && r.length - c.length >= (a.seg.chars.length - k - 1)) { matched = c; break; }
+      }
+      if (!matched) {
+        const remain = a.seg.chars.length - k;
+        const share = Math.max(1, Math.floor(r.length / remain));
+        matched = r.slice(0, share);
+      }
+      result.push({ char: ch, reading: matched });
+      r = r.slice(matched.length);
+    }
+  }
+  return result;
+}
+
+function isSplitValid(word, reading, splits) {
+  if (!splits) return false;
+  return splits.map(s => s.char).join('') === word
+      && splits.map(s => s.reading).join('') === reading;
+}
+
+function splitWord(word, reading) {
+  const r1 = splitWordBasic(word, reading);
+  if (isSplitValid(word, reading, r1)) return r1;
+  const r2 = splitWordAnchor(word, reading);
+  if (isSplitValid(word, reading, r2)) return r2;
+  return r1 || r2;
+}
+
+function learnReadings(splits) {
+  let added = 0;
+  for (const s of splits) {
+    if (!isKanji(s.char)) continue;
+    if (!KANJI_READINGS[s.char]) KANJI_READINGS[s.char] = [];
+    if (!KANJI_READINGS[s.char].includes(s.reading)) {
+      KANJI_READINGS[s.char].push(s.reading);
+      added++;
+    }
+  }
+  return added;
+}
+
+let vocab = [];
+let dataFailures = [];
+
+function buildVocab(rawText) {
+  const entries = parseCSV(rawText).filter(v => isCleanReading(v.reading));
+  for (const e of entries) {
+    if (e.splitStr) {
+      const parsed = parseSplitStr(e.splitStr);
+      if (parsed && isSplitValid(e.word, e.reading, parsed)) {
+        e.splits = parsed;
+        learnReadings(parsed);
+      }
+    }
+  }
+  let iter = 0, changed = true;
+  while (changed && iter < 8) {
+    changed = false; iter++;
+    for (const e of entries) {
+      if (e.splits) continue;
+      const s = splitWord(e.word, e.reading);
+      if (isSplitValid(e.word, e.reading, s)) {
+        e.splits = s;
+        if (learnReadings(s) > 0) changed = true;
+      }
+    }
+  }
+  for (const e of entries) {
+    if (!e.splits) e.splits = splitWord(e.word, e.reading);
+  }
+  const ok = [], ng = [];
+  for (const e of entries) {
+    if (isSplitValid(e.word, e.reading, e.splits)
+        && e.splits.length >= 2 && e.splits.length <= 4) {
+      ok.push({ word: e.word, reading: e.reading, splits: e.splits });
+    } else { ng.push(e); }
+  }
+  return { ok, ng };
+}
+
+function updateStatus(msg) {
+  const el = document.getElementById('csvStatus');
+  if (el) el.textContent = msg;
+}
+
+function loadDefault() {
+  const r = buildVocab(rawCSV);
+  vocab = r.ok; dataFailures = r.ng;
+  updateStatus(`標準データ：${vocab.length}件読み込み${dataFailures.length ? `（${dataFailures.length}件は分割不可で除外）` : ''}`);
+}
+
+function loadFromText(text, label) {
+  const r = buildVocab(text);
+  vocab = r.ok; dataFailures = r.ng;
+  updateStatus(`${label}：${vocab.length}件読み込み${dataFailures.length ? `（${dataFailures.length}件は分割不可で除外）` : ''}`);
+}
+
+function refreshLists() {
+  const kanjiSet = new Set();
+  vocab.forEach(v => Array.from(v.word).forEach(c => { if (isKanji(c)) kanjiSet.add(c); }));
+  const sortedKanji = Array.from(kanjiSet).sort();
+  const filterSel = document.getElementById('filterKanji');
+  filterSel.innerHTML = '<option value="">（しぼり込みなし）</option>';
+  sortedKanji.forEach(k => {
+    const opt = document.createElement('option');
+    opt.value = k; opt.textContent = k;
+    filterSel.appendChild(opt);
+  });
+  const p1 = document.getElementById('problem1');
+  const p2 = document.getElementById('problem2');
+  p1.innerHTML = ''; p2.innerHTML = '';
+  vocab.forEach((v, idx) => {
+    const label = `${v.word}（${v.reading}）`;
+    [p1, p2].forEach(sel => {
+      const opt = document.createElement('option');
+      opt.value = idx; opt.textContent = label;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+function initUI() {
+  document.querySelectorAll('input[name="mode"]').forEach(r => {
+    r.addEventListener('change', updateModeUI);
+  });
+  updateModeUI();
+  document.getElementById('csvFile').addEventListener('change', (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        loadFromText(e.target.result, file.name);
+        refreshLists();
+        generate();
+      } catch (err) {
+        updateStatus(`読み込みエラー：${err.message}`);
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  });
+}
+
+function resetVocab() {
+  document.getElementById('csvFile').value = '';
+  loadDefault();
+  refreshLists();
+  generate();
+}
+
+function updateModeUI() {
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  document.querySelectorAll('.manual-only').forEach(el => {
+    el.style.display = (mode === 'manual') ? 'flex' : 'none';
+  });
+  document.getElementById('filterRow').style.display = (mode === 'random') ? 'flex' : 'none';
+}
+
+function pickRandom(filterKanji) {
+  let pool = vocab;
+  if (filterKanji) pool = pool.filter(v => v.word.includes(filterKanji));
+  if (pool.length === 0) pool = vocab;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function selectProblems() {
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  if (mode === 'manual') {
+    const i1 = +document.getElementById('problem1').value;
+    const i2 = +document.getElementById('problem2').value;
+    return [vocab[i1], vocab[i2]];
+  } else {
+    const fk = document.getElementById('filterKanji').value;
+    let first = pickRandom(fk);
+    let second = pickRandom(fk);
+    let tries = 0;
+    while (second && first && second.word === first.word && tries < 30) {
+      second = pickRandom(fk); tries++;
+    }
+    return [first, second];
+  }
+}
+
+function makeFuri(reading) {
+  const div = document.createElement('div');
+  div.className = 'furi';
+  Array.from(reading).forEach(c => {
+    const s = document.createElement('span');
+    s.textContent = c;
+    div.appendChild(s);
+  });
+  return div;
+}
+
+function buildProblem(problem, number) {
+  const wrap = document.createElement('div');
+  wrap.className = 'problem';
+  const title = document.createElement('div');
+  title.className = 'problem-title';
+  const numBadge = document.createElement('span');
+  numBadge.className = 'num';
+  numBadge.textContent = number;
+  title.appendChild(numBadge);
+  const ruby = document.createElement('ruby');
+  problem.splits.forEach(s => {
+    ruby.appendChild(document.createTextNode(s.char));
+    const rt = document.createElement('rt');
+    rt.textContent = s.reading;
+    ruby.appendChild(rt);
+  });
+  title.appendChild(ruby);
+  wrap.appendChild(title);
+  const rowsToShow = 4;
+  for (let r = 0; r < rowsToShow; r++) {
+    const slot = problem.splits[r];
+    const row = document.createElement('div');
+    row.className = 'grid-row';
+    for (let c = 0; c < 6; c++) {
+      const unit = document.createElement('div');
+      unit.className = 'cell-unit';
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (slot && c >= 4) {
+        const ch = document.createElement('div');
+        ch.className = 'char';
+        ch.textContent = slot.char;
+        cell.appendChild(ch);
+      }
+      unit.appendChild(cell);
+      if (slot) {
+        unit.appendChild(makeFuri(slot.reading));
+      } else {
+        const pad = document.createElement('div');
+        pad.className = 'furi';
+        unit.appendChild(pad);
+      }
+      row.appendChild(unit);
+    }
+    wrap.appendChild(row);
+  }
+  return wrap;
+}
+
+function generate() {
+  const [p1, p2] = selectProblems();
+  if (!p1 || !p2) return;
+  const sheet = document.getElementById('sheet');
+  sheet.innerHTML = '';
+  const header = document.createElement('div');
+  header.className = 'header-bar';
+  header.innerHTML = `
+    <div class="title">かんじプリント</div>
+    <div class="field">なまえ<span class="line"></span>　ひづけ<span class="line"></span></div>
+  `;
+  sheet.appendChild(header);
+  sheet.appendChild(buildProblem(p1, 1));
+  const hr = document.createElement('hr');
+  hr.className = 'divider';
+  sheet.appendChild(hr);
+  sheet.appendChild(buildProblem(p2, 2));
+  const credit = document.createElement('div');
+  credit.style.textAlign = 'right';
+  credit.style.fontSize = '8pt';
+  credit.style.color = '#aaa';
+  credit.style.marginTop = '5mm';
+  credit.textContent = '© 2026 Sawa | Font: Klee One';
+  sheet.appendChild(credit);
+}
+
+initUI();
+loadDefault();
+refreshLists();
+generate();
+</script>
+  <footer style="text-align: center; padding: 20px; font-size: 12px; color: #888;">
+  <p>© 2026 Sawa | Font: Klee One by Fontworks Inc. (SIL Open Font License 1.1)</p>
+  </footer>
+</body>
+</html>
