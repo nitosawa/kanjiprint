@@ -125,7 +125,7 @@ input[type="file"] { font-family: inherit; font-size: 13px; }
 .cell .char {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 24mm; 
+  font-size: 24mm;
   color: #e0e0e0; /* 透明度(opacity)ではなく、薄いグレーを直接指定 */
   line-height: 1;
   font-weight: 400 !important; /* 強制的にNormalウェイトにする */
@@ -190,12 +190,19 @@ input[type="file"] { font-family: inherit; font-size: 13px; }
     <label class="radio"><input type="radio" name="mode" value="manual"> 手動選択</label>
   </div>
 
-  <div class="row" id="filterRow">
-    <label class="lbl">漢字でしぼり込み</label>
-    <select id="filterKanji">
+  <div class="row" id="filterRow1">
+    <label class="lbl">漢字１</label>
+    <select id="filterKanji1">
       <option value="">（しぼり込みなし）</option>
     </select>
-    <span class="note">特定の漢字を含む熟語からランダム抽出</span>
+    <span class="note">問題１に使う漢字</span>
+  </div>
+  <div class="row" id="filterRow2">
+    <label class="lbl">漢字２</label>
+    <select id="filterKanji2">
+      <option value="">（しぼり込みなし）</option>
+    </select>
+    <span class="note">問題２に使う漢字（同じ漢字を選んでもOK）</span>
   </div>
 
   <div class="row manual-only" style="display:none;">
@@ -737,13 +744,20 @@ function refreshLists() {
   const kanjiSet = new Set();
   vocab.forEach(v => Array.from(v.word).forEach(c => { if (isKanji(c)) kanjiSet.add(c); }));
   const sortedKanji = Array.from(kanjiSet).sort();
-  const filterSel = document.getElementById('filterKanji');
-  filterSel.innerHTML = '<option value="">（しぼり込みなし）</option>';
+
+  // 漢字フィルタを2つ用意
+  const filterSel1 = document.getElementById('filterKanji1');
+  const filterSel2 = document.getElementById('filterKanji2');
+  filterSel1.innerHTML = '<option value="">（しぼり込みなし）</option>';
+  filterSel2.innerHTML = '<option value="">（しぼり込みなし）</option>';
   sortedKanji.forEach(k => {
-    const opt = document.createElement('option');
-    opt.value = k; opt.textContent = k;
-    filterSel.appendChild(opt);
+    [filterSel1, filterSel2].forEach(sel => {
+      const opt = document.createElement('option');
+      opt.value = k; opt.textContent = k;
+      sel.appendChild(opt);
+    });
   });
+
   const p1 = document.getElementById('problem1');
   const p2 = document.getElementById('problem2');
   p1.innerHTML = ''; p2.innerHTML = '';
@@ -791,7 +805,9 @@ function updateModeUI() {
   document.querySelectorAll('.manual-only').forEach(el => {
     el.style.display = (mode === 'manual') ? 'flex' : 'none';
   });
-  document.getElementById('filterRow').style.display = (mode === 'random') ? 'flex' : 'none';
+  const showFilter = (mode === 'random') ? 'flex' : 'none';
+  document.getElementById('filterRow1').style.display = showFilter;
+  document.getElementById('filterRow2').style.display = showFilter;
 }
 
 function pickRandom(filterKanji) {
@@ -808,12 +824,15 @@ function selectProblems() {
     const i2 = +document.getElementById('problem2').value;
     return [vocab[i1], vocab[i2]];
   } else {
-    const fk = document.getElementById('filterKanji').value;
-    let first = pickRandom(fk);
-    let second = pickRandom(fk);
+    // 漢字１に対応する熟語を1つ、漢字２に対応する熟語を1つ
+    const fk1 = document.getElementById('filterKanji1').value;
+    const fk2 = document.getElementById('filterKanji2').value;
+    const first  = pickRandom(fk1);
+    let second = pickRandom(fk2);
+    // 同じ熟語が2回出ないように軽くリトライ（同じ漢字を選んだ場合などに有効）
     let tries = 0;
     while (second && first && second.word === first.word && tries < 30) {
-      second = pickRandom(fk); tries++;
+      second = pickRandom(fk2); tries++;
     }
     return [first, second];
   }
